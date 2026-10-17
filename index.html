@@ -24,13 +24,13 @@
 
     <!-- Centered Logo & Portfolio Credit -->
     <div class="nav-center">
-      <a href="https://benlafqih.com" target="_blank" rel="noopener noreferrer" class="creator-badge" title="Created by Ahmed Benlafqih">
-        <img src="White-removebg-preview.png" alt="Benlafqih Logo" class="creator-logo">
-        <span class="creator-label">benlafqih.com</span>
+      <a href="https://benlafqih.com" target="_blank" rel="noopener noreferrer" class="creator-badge" title="benlafqih.com — portfolio of Ahmed Benlafqih">
+        <img src="White-removebg-preview.png" alt="Benlafqih — go to portfolio" class="creator-logo">
       </a>
     </div>
 
     <div class="nav-actions">
+      <button id="btnNewChat" class="btn" title="End this session and start a new encrypted chat">New Chat</button>
       <button id="btnHowItWorks" class="btn" title="Learn how AESChat works under the hood">How It Works</button>
       <button id="btnInvite" class="btn" title="Share invite link">Invite</button>
       <button id="btnSafetyNumber" class="btn" title="View key fingerprint">Safety Number</button>
@@ -50,7 +50,7 @@
         <!-- Welcome Screen (if not in room) -->
         <div id="welcomeBox" class="card setup-card">
           <h2>Start Secure Chat</h2>
-          <p class="desc">End-to-end encrypted with AES-256-GCM. Packets travel directly peer-to-peer via WebRTC. Zero server storage.</p>
+          <p class="desc">End-to-end encrypted with AES-256-GCM. Once connected, messages travel directly peer-to-peer via WebRTC. No message is ever stored on a server.</p>
 
           <div class="input-group">
             <label for="setupAlias">Your Alias:</label>
@@ -75,7 +75,7 @@
         <!-- Join Screen (if opened via invite link) -->
         <div id="joinBox" class="card setup-card hidden">
           <h2>Join Encrypted Chat</h2>
-          <p class="desc">You were invited to an encrypted room. The secret key is in the URL hash and never touches a server.</p>
+          <p class="desc">You were invited to an encrypted room. The key lives in the link's <code>#</code> fragment, which your browser never sends to the page host — so share the link only with people you trust.</p>
 
           <div class="input-group">
             <label for="joinAlias">Your Alias:</label>
@@ -143,13 +143,13 @@
       
       <div class="explainer-list">
         <div class="explainer-item">
-          <div class="explainer-title">1. The Zero-Knowledge URL Hash Secret</div>
-          <p>When an encrypted room is generated, the 256-bit AES key is packed into the URL fragment (<code>#room=...&key=...</code>). According to the RFC 3986 HTTP specification, browsers <strong>never send anything after the # in HTTP requests</strong>. Cloudflare's servers never see or log the encryption key.</p>
+          <div class="explainer-title">1. The key lives in the link</div>
+          <p>When a room is created, a fresh 256-bit AES key is packed into the URL fragment (<code>#room=...&key=...</code>). Per RFC 3986, browsers <strong>don't send anything after the <code>#</code> in HTTP requests</strong>, so the page host (Cloudflare) never receives the key. The trade-off: anyone who has the link has the key and can read the chat — so share it over a trusted channel.</p>
         </div>
 
         <div class="explainer-item">
           <div class="explainer-title">2. Direct Peer-to-Peer (WebRTC)</div>
-          <p>Messages never pass through an intermediate messaging server or database. Once WebRTC signaling completes, packets flow directly between the two browser devices across Google STUN relays with sub-50ms latency.</p>
+          <p>Message packets aren't relayed through a messaging server or stored in a database — once the connection is up, they flow directly between the two browsers. Setting the connection up does use a signaling server (PeerJS) and STUN servers (Google) to introduce the peers; those see connection metadata, not message content or the key.</p>
         </div>
 
         <div class="explainer-item">
@@ -163,8 +163,8 @@
         </div>
 
         <div class="explainer-item">
-          <div class="explainer-title">5. Serverless & $0 Forever</div>
-          <p>Unlike traditional chat servers that require a persistent VPS running a C/Node socket server, this entire architecture deploys as static assets on Cloudflare Pages with zero maintenance and zero hosting fees.</p>
+          <div class="explainer-title">5. Static hosting, no app server</div>
+          <p>Unlike a traditional chat that needs a persistent VPS running a socket server, this app is just static files (HTML/CSS/JS) served by Cloudflare, with no backend application to run or maintain. Connection setup still relies on the shared PeerJS and STUN servers described above.</p>
         </div>
       </div>
 
@@ -182,7 +182,7 @@
         <h3>Share Invite Link</h3>
         <button class="btn btn-sm btn-close-modal">x</button>
       </div>
-      <p class="desc">The secret 256-bit key is in the #hash and never sent to Cloudflare.</p>
+      <p class="desc">The 256-bit key is in the link's <code>#</code> fragment, so it isn't sent to the page host. Anyone with this link can read the chat — share it only with the person you mean to.</p>
       
       <div class="link-row">
         <input type="text" id="shareUrlInput" class="text-input" readonly>

@@ -36,6 +36,9 @@ const state = {
 const DOM = {
   statusIndicator: document.getElementById('statusIndicator'),
   latencyTag: document.getElementById('latencyTag'),
+  btnNewChat: document.getElementById('btnNewChat'),
+  btnHowItWorks: document.getElementById('btnHowItWorks'),
+  howItWorksModal: document.getElementById('howItWorksModal'),
   btnInvite: document.getElementById('btnInvite'),
   btnSafetyNumber: document.getElementById('btnSafetyNumber'),
   btnToggleInspector: document.getElementById('btnToggleInspector'),
@@ -293,6 +296,63 @@ function updateInviteLink(url) {
   }
 }
 
+// Tears down the current encrypted session and returns the app to a clean
+// "start a new chat" state, without a page reload.
+function resetSession() {
+  if (state.p2p) {
+    try { state.p2p.destroy(); } catch (_) {}
+  }
+  state.p2p = null;
+  state.key = null;
+  state.rawKeyBase64 = null;
+  state.safetyNumber = null;
+  state.roomId = null;
+  state.isHost = false;
+  state.peerAlias = 'Peer';
+  state.packetLog = [];
+  if (state.typingTimeout) {
+    clearTimeout(state.typingTimeout);
+    state.typingTimeout = null;
+  }
+
+  // Drop the room key from the URL so it isn't reused or left in history.
+  history.replaceState(null, '', window.location.origin + window.location.pathname);
+
+  // Reset the chat + inspector UI (static strings only, no user data).
+  DOM.messagesList.innerHTML = '';
+  DOM.inspectorPackets.innerHTML =
+    '<div class="empty-log">No packets logged yet. Send a message to inspect the wire.</div>';
+  DOM.packetCount.textContent = '0';
+  DOM.inspectorPanel.classList.add('hidden');
+  DOM.typingIndicator.classList.add('hidden');
+  DOM.latencyTag.textContent = '';
+  DOM.safetyNumberDisplay.textContent = 'Loading...';
+  DOM.statusIndicator.className = 'status-badge waiting';
+  DOM.statusIndicator.textContent = 'waiting';
+
+  // Lock the composer until a new room connects.
+  DOM.messageInput.value = '';
+  DOM.messageInput.disabled = true;
+  DOM.btnSend.disabled = true;
+
+  // Reset verification and show the welcome card.
+  state.isHostVerified = false;
+  state.isGuestVerified = false;
+  DOM.botCheckInput.checked = false;
+  DOM.btnCreateRoom.disabled = true;
+  DOM.botVerifiedText.classList.add('hidden');
+  DOM.guestBotCheckInput.checked = false;
+  DOM.btnJoinRoom.disabled = true;
+  DOM.guestBotVerifiedText.classList.add('hidden');
+
+  DOM.joinBox.classList.add('hidden');
+  DOM.welcomeBox.classList.remove('hidden');
+  DOM.botQuoteDisplay.textContent = getRandomQuote();
+
+  // Close any open modal.
+  document.querySelectorAll('.modal-overlay').forEach((m) => m.classList.add('hidden'));
+}
+
 async function startSession(roomId, base64Key, isHost) {
   state.roomId = roomId;
   state.isHost = isHost;
@@ -339,6 +399,12 @@ function bindEvents() {
   });
 
   // Top buttons
+  DOM.btnNewChat.addEventListener('click', () => {
+    // Only confirm if there's a live session to discard.
+    if (state.p2p && !confirm('Start a new chat? This ends the current encrypted session.')) return;
+    resetSession();
+  });
+  DOM.btnHowItWorks.addEventListener('click', () => DOM.howItWorksModal.classList.remove('hidden'));
   DOM.btnInvite.addEventListener('click', () => DOM.inviteModal.classList.remove('hidden'));
   DOM.btnSafetyNumber.addEventListener('click', () => DOM.safetyModal.classList.remove('hidden'));
   DOM.btnToggleInspector.addEventListener('click', () => DOM.inspectorPanel.classList.toggle('hidden'));
