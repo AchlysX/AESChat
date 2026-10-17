@@ -6,16 +6,7 @@
 
 import { CryptoEngine } from './crypto.js';
 import { P2PConnection } from './p2p.js';
-
-// Quirky Anti-AI Quotes (Classic :) style)
-const QUIRKY_BOT_QUOTES = [
-  'Bot verification, cause the last thing we want is AI agents communicating securely over this (yes I see you OpenAI agents) :)',
-  'Scanning consciousness for unauthorized neural net architectures... :o',
-  'Calibrating biological vibe check: ensuring you run on coffee, not electricity :D',
-  'Ensuring no autonomous agents are plotting world domination over AES-256-GCM... ;)',
-  'Verifying that prompt injection was not detected in user consciousness... :|',
-  'Confirming carbon-based lifeform status before granting cryptographic keys... (o_o)',
-];
+import { t, getLang, setLang, storedLang, randomQuote, applyTranslations } from './i18n.js';
 
 const state = {
   key: null,
@@ -36,6 +27,10 @@ const state = {
 const DOM = {
   statusIndicator: document.getElementById('statusIndicator'),
   latencyTag: document.getElementById('latencyTag'),
+  langGate: document.getElementById('langGate'),
+  langEn: document.getElementById('langEn'),
+  langFr: document.getElementById('langFr'),
+  btnLang: document.getElementById('btnLang'),
   btnNewChat: document.getElementById('btnNewChat'),
   btnHowItWorks: document.getElementById('btnHowItWorks'),
   howItWorksModal: document.getElementById('howItWorksModal'),
@@ -121,7 +116,7 @@ function scrollToBottom() {
 }
 
 function getRandomQuote() {
-  return QUIRKY_BOT_QUOTES[Math.floor(Math.random() * QUIRKY_BOT_QUOTES.length)];
+  return randomQuote();
 }
 
 function appendMessage({ id, text, isOutgoing, sender, timestamp, cryptoMeta }) {
@@ -188,34 +183,34 @@ function handleStatusChange(status, detail) {
 
   if (status === 'connecting') {
     DOM.statusIndicator.classList.add('waiting');
-    DOM.statusIndicator.textContent = 'connecting...';
+    DOM.statusIndicator.textContent = t('st_connecting');
     DOM.messageInput.disabled = true;
     DOM.btnSend.disabled = true;
     DOM.latencyTag.textContent = '';
   } else if (status === 'waiting-for-peer') {
     DOM.statusIndicator.classList.add('waiting');
-    DOM.statusIndicator.textContent = 'waiting for peer...';
+    DOM.statusIndicator.textContent = t('st_waiting_peer');
     DOM.messageInput.disabled = true;
     DOM.btnSend.disabled = true;
     DOM.latencyTag.textContent = '';
   } else if (status === 'connected') {
     DOM.statusIndicator.classList.add('connected');
-    DOM.statusIndicator.textContent = 'connected';
+    DOM.statusIndicator.textContent = t('st_connected');
     DOM.messageInput.disabled = false;
     DOM.btnSend.disabled = false;
     DOM.messageInput.focus();
-    appendSystemNotice(`[SECURE] ${detail || 'Connected'}. Encrypted with AES-256-GCM.`);
+    appendSystemNotice(t('notice_secure'));
   } else if (status === 'disconnected') {
     DOM.statusIndicator.classList.add('disconnected');
-    DOM.statusIndicator.textContent = 'disconnected';
+    DOM.statusIndicator.textContent = t('st_disconnected');
     DOM.messageInput.disabled = true;
     DOM.btnSend.disabled = true;
     DOM.latencyTag.textContent = '';
-    appendSystemNotice('[INFO] Peer disconnected.');
+    appendSystemNotice(t('notice_peer_disconnected'));
   } else if (status === 'error') {
     DOM.statusIndicator.classList.add('disconnected');
-    DOM.statusIndicator.textContent = 'notice';
-    appendSystemNotice(`[INFO] ${detail}`);
+    DOM.statusIndicator.textContent = t('st_notice');
+    if (detail) appendSystemNotice(`[INFO] ${detail}`);
   }
 }
 
@@ -277,7 +272,7 @@ async function handleIncomingMessage(packet) {
     });
   } catch (err) {
     console.error('Decryption failed:', err);
-    appendSystemNotice('[WARN] Decryption error: authentication tag mismatch.');
+    appendSystemNotice(t('notice_decrypt_error'));
   }
 }
 
@@ -326,9 +321,9 @@ function resetSession() {
   DOM.inspectorPanel.classList.add('hidden');
   DOM.typingIndicator.classList.add('hidden');
   DOM.latencyTag.textContent = '';
-  DOM.safetyNumberDisplay.textContent = 'Loading...';
+  DOM.safetyNumberDisplay.textContent = t('loading');
   DOM.statusIndicator.className = 'status-badge waiting';
-  DOM.statusIndicator.textContent = 'waiting';
+  DOM.statusIndicator.textContent = t('st_waiting');
 
   // Lock the composer until a new room connects.
   DOM.messageInput.value = '';
@@ -401,7 +396,7 @@ function bindEvents() {
   // Top buttons
   DOM.btnNewChat.addEventListener('click', () => {
     // Only confirm if there's a live session to discard.
-    if (state.p2p && !confirm('Start a new chat? This ends the current encrypted session.')) return;
+    if (state.p2p && !confirm(t('confirm_newchat'))) return;
     resetSession();
   });
   DOM.btnHowItWorks.addEventListener('click', () => DOM.howItWorksModal.classList.remove('hidden'));
@@ -414,8 +409,8 @@ function bindEvents() {
   DOM.btnCopyLink.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(DOM.shareUrlInput.value);
-      DOM.btnCopyLink.textContent = 'Copied!';
-      setTimeout(() => { DOM.btnCopyLink.textContent = 'Copy'; }, 1500);
+      DOM.btnCopyLink.textContent = t('btn_copied');
+      setTimeout(() => { DOM.btnCopyLink.textContent = t('btn_copy'); }, 1500);
     } catch (_) {
       DOM.shareUrlInput.select();
       document.execCommand('copy');
@@ -425,11 +420,11 @@ function bindEvents() {
   // Host Bot Verification
   DOM.botCheckInput.addEventListener('change', () => {
     if (DOM.botCheckInput.checked) {
-      DOM.botCheckText.textContent = 'Verifying biological synapses...';
+      DOM.botCheckText.textContent = t('bot_verifying');
       setTimeout(() => {
         state.isHostVerified = true;
         DOM.botVerifiedText.classList.remove('hidden');
-        DOM.botCheckText.textContent = 'Human verified :)';
+        DOM.botCheckText.textContent = t('bot_human');
         DOM.btnCreateRoom.disabled = false;
         playAudioChime();
       }, 400);
@@ -519,7 +514,7 @@ function bindEvents() {
       });
     } catch (err) {
       console.error('Failed to send:', err);
-      appendSystemNotice(`[ERR] Failed to send: ${err.message}`);
+      appendSystemNotice(t('notice_send_fail') + err.message);
     }
   });
 
@@ -549,7 +544,40 @@ async function init() {
   }
 }
 
-init().catch((err) => {
-  console.error('Init error:', err);
-  handleStatusChange('error', err.message);
-});
+// Reflect the current language on the nav toggle (shows the language you'd switch TO).
+function updateLangToggle() {
+  if (DOM.btnLang) DOM.btnLang.textContent = getLang() === 'fr' ? 'EN' : 'FR';
+}
+
+// Apply a language to the whole UI. Safe to call repeatedly (e.g. nav toggle).
+function applyLanguage(lang) {
+  setLang(lang);
+  applyTranslations();
+  updateLangToggle();
+  // Refresh the few dynamic strings already on screen.
+  if (DOM.botQuoteDisplay) DOM.botQuoteDisplay.textContent = getRandomQuote();
+  if (DOM.guestBotQuoteDisplay) DOM.guestBotQuoteDisplay.textContent = getRandomQuote();
+}
+
+let appStarted = false;
+function startApp(lang) {
+  applyLanguage(lang);
+  DOM.langGate.classList.add('hidden');
+  if (appStarted) return;
+  appStarted = true;
+  init().catch((err) => {
+    console.error('Init error:', err);
+    handleStatusChange('error', err.message);
+  });
+}
+
+// Language gate: pick FR/EN before the app runs. Remembers the choice for next time.
+DOM.langEn.addEventListener('click', () => startApp('en'));
+DOM.langFr.addEventListener('click', () => startApp('fr'));
+DOM.btnLang.addEventListener('click', () => applyLanguage(getLang() === 'fr' ? 'en' : 'fr'));
+
+const saved = storedLang();
+if (saved) {
+  startApp(saved);
+}
+// else: the gate is visible by default and waits for a choice.

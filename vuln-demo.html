@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AESChat — XSS Demo (vulnerable vs patched)</title>
+  <link rel="icon" href="/favicon.ico">
+  <style>
+    :root {
+      --bg: #111111; --surface: #181818; --surface-alt: #222222; --border: #2e2e2e;
+      --text: #eaeaea; --text-muted: #888888; --accent: #10b981; --danger: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.6; padding: 0 16px 80px;
+    }
+    .wrap { max-width: 880px; margin: 0 auto; }
+    header.top {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 16px 0; border-bottom: 1px solid var(--border); margin-bottom: 28px;
+    }
+    header.top .back { color: var(--text-muted); text-decoration: none; font-size: 14px; }
+    header.top .back:hover { color: var(--text); }
+    header.top img { height: 40px; width: auto; }
+    h1 { font-size: 25px; margin: 20px 0 8px; letter-spacing: -0.02em; }
+    h2 { font-size: 18px; margin: 36px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    p { margin: 0 0 12px; }
+    a { color: var(--accent); }
+    code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 13px; background: var(--surface-alt); padding: 1px 5px; border-radius: 3px; color: #cbd5e1; }
+    pre { background: #0d0d0d; border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; overflow-x: auto; margin: 0 0 14px; }
+    pre code { background: none; padding: 0; color: #cbd5e1; }
+    .lede { color: var(--text-muted); font-size: 16px; }
+    .warnbar { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.4); color: #fca5a5; border-radius: 6px; padding: 12px 14px; margin: 16px 0; font-size: 14px; }
+    .okbar { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.35); color: #6ee7b7; border-radius: 6px; padding: 12px 14px; margin: 16px 0; font-size: 14px; }
+    label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 6px; }
+    textarea {
+      width: 100%; min-height: 72px; background: #0d0d0d; color: var(--text); border: 1px solid var(--border);
+      border-radius: 6px; padding: 10px 12px; font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 13px; resize: vertical;
+    }
+    .controls { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0 20px; }
+    button {
+      background: var(--surface-alt); color: var(--text); border: 1px solid var(--border); border-radius: 6px;
+      padding: 9px 16px; font-size: 14px; cursor: pointer;
+    }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #04120c; font-weight: 600; }
+    button:hover { filter: brightness(1.1); }
+    .panes { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 640px) { .panes { grid-template-columns: 1fr; } }
+    .pane { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+    .pane.vuln { border-color: rgba(239,68,68,0.5); }
+    .pane.safe { border-color: rgba(16,185,129,0.45); }
+    .pane h3 { font-size: 14px; margin-bottom: 4px; }
+    .pane .sub { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; }
+    .inspector { background: #0d0d0d; border: 1px solid var(--border); border-radius: 6px; padding: 10px; min-height: 64px; font-family: "SF Mono", Menlo, monospace; font-size: 12px; word-break: break-all; }
+    .packet-val { color: #cbd5e1; }
+    .proof { margin-top: 10px; background: var(--danger); color: #fff; font-weight: 700; padding: 8px 10px; border-radius: 6px; font-size: 13px; }
+    .foot { margin-top: 44px; padding-top: 18px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a href="security.html" class="back">&larr; Back to the audit</a>
+      <a href="https://benlafqih.com" target="_blank" rel="noopener noreferrer" title="benlafqih.com"><img src="White-removebg-preview.png" alt="Benlafqih"></a>
+    </header>
+
+    <h1>Live demo: the XSS the AI port introduced (F1)</h1>
+    <p class="lede">This page intentionally runs the <strong>vulnerable</strong> inspector code next to the <strong>patched</strong> one so you can fire a real cross-site-scripting payload and watch the difference. It's a self-contained sandbox — no chat, no network, no peers — so nothing you do here can reach anyone. The live app at <a href="index.html">index.html</a> only ships the patched version.</p>
+
+    <div class="warnbar">⚠️ Deliberately vulnerable code lives on <em>this page only</em>. Don't copy the left-hand pattern into anything real.</div>
+
+    <h2>Try it</h2>
+    <p>In AESChat, the wire inspector logged every incoming packet by dropping its fields into the DOM. The <code>iv</code> field comes straight from the remote peer. Below is what a malicious peer could put in that field. Hit <em>Render packet</em> and watch the two panes.</p>
+
+    <label for="payload">Attacker-controlled <code>packet.iv</code> value</label>
+    <textarea id="payload">&lt;img src=x onerror="document.getElementById('proofV').hidden=false"&gt;</textarea>
+    <div class="controls">
+      <button class="primary" id="render">Render packet</button>
+      <button id="reset">Reset</button>
+    </div>
+
+    <div class="panes">
+      <div class="pane vuln">
+        <h3 style="color:var(--danger)">Vulnerable — uses <code>innerHTML</code></h3>
+        <div class="sub">The original ported code. The field is parsed as HTML.</div>
+        <div class="inspector" id="inspV"><span style="color:var(--text-muted)">No packet yet.</span></div>
+        <div class="proof" id="proofV" hidden>⚠️ Arbitrary JavaScript just ran in your page. Encryption didn't matter.</div>
+      </div>
+      <div class="pane safe">
+        <h3 style="color:var(--accent)">Patched — uses <code>textContent</code></h3>
+        <div class="sub">The fix. The field is shown as inert text.</div>
+        <div class="inspector" id="inspS"><span style="color:var(--text-muted)">No packet yet.</span></div>
+        <div class="proof" id="proofS" hidden>This should never appear.</div>
+      </div>
+    </div>
+
+    <h2>How you'd actually attack it</h2>
+    <p>In the real app the inspector renders on <strong>every inbound packet, even with the panel closed</strong>. So the attack needs no clicks from the victim:</p>
+    <ol style="margin:0 0 14px 20px">
+      <li>Get into a room with the target — trivial here, since anyone with the invite link is a valid peer.</li>
+      <li>Instead of a normal encrypted message, send a packet whose <code>iv</code> (or <code>ciphertext</code>/<code>tag</code>) is a payload like the one above.</li>
+      <li>On the victim's side, <code>logPacket</code> builds the row with <code>innerHTML</code>, the browser parses your <code>&lt;img&gt;</code>, the bogus <code>src</code> fails, and <code>onerror</code> runs <em>your</em> JavaScript in their page.</li>
+    </ol>
+    <p>From there, "end-to-end encrypted" is meaningless: your code is already inside the page, so it can read the AES key out of memory, grab every decrypted message, change what the victim sees, or quietly send messages as them. A realistic payload wouldn't reveal a banner — it would exfiltrate the key and stay silent.</p>
+
+    <h2>Why a coding agent produced this</h2>
+    <p>Building a row with a template string and <code>innerHTML</code> is the shortest path to working UI, and it looks completely fine in a demo: you type a normal message, the inspector shows it, done. The trap is the <em>data source</em> — those fields arrive from an untrusted peer, not from you. Nothing in the happy path reveals it, and "please review my app for security" won't either unless someone traces where each value actually comes from.</p>
+
+    <h2>The fix (what the patched pane does)</h2>
+    <pre><code>// Vulnerable: peer data parsed as HTML
+entry.innerHTML = `IV: &lt;span class="packet-val"&gt;${packet.iv}&lt;/span&gt;`;
+
+// Patched: peer data can only ever be text
+const val = document.createElement('span');
+val.className = 'packet-val';
+val.textContent = packet.iv;   // never parsed as markup</code></pre>
+    <p>The rule: untrusted data goes in with <code>textContent</code> / <code>createElement</code>, never interpolated into <code>innerHTML</code>. A Content-Security-Policy (finding H2) would have blocked the inline <code>onerror</code> too — defence in depth.</p>
+
+    <div class="foot">
+      Educational demo for the <a href="security.html">AESChat security self-audit</a>. The vulnerable code is confined to this page; the deployed app is patched. By <a href="https://benlafqih.com" target="_blank" rel="noopener noreferrer">Ahmed Benlafqih</a>.
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var V = document.getElementById('inspV');
+      var S = document.getElementById('inspS');
+      var proofV = document.getElementById('proofV');
+      var proofS = document.getElementById('proofS');
+      var payload = document.getElementById('payload');
+
+      function render() {
+        proofV.hidden = true;
+        proofS.hidden = true;
+        var value = payload.value;
+        // VULNERABLE: exactly what the original logPacket did — peer field into innerHTML.
+        V.innerHTML = 'IV: <span class="packet-val">' + value + '</span>';
+        // PATCHED: build the node and set textContent — the fix in app.js.
+        S.textContent = '';
+        var lead = document.createTextNode('IV: ');
+        var span = document.createElement('span');
+        span.className = 'packet-val';
+        span.textContent = value;
+        S.appendChild(lead);
+        S.appendChild(span);
+      }
+
+      function reset() {
+        payload.value = '<img src=x onerror="document.getElementById(\'proofV\').hidden=false">';
+        V.innerHTML = '<span style="color:var(--text-muted)">No packet yet.</span>';
+        S.textContent = '';
+        var ph = document.createElement('span');
+        ph.style.color = 'var(--text-muted)';
+        ph.textContent = 'No packet yet.';
+        S.appendChild(ph);
+        proofV.hidden = true;
+        proofS.hidden = true;
+      }
+
+      document.getElementById('render').addEventListener('click', render);
+      document.getElementById('reset').addEventListener('click', reset);
+    })();
+  </script>
+</body>
+</html>

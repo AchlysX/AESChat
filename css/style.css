@@ -604,6 +604,24 @@ body {
   display: none !important;
 }
 
+/* Language gate (shown before the app until FR/EN is chosen) */
+.lang-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.lang-gate-box { text-align: center; max-width: 440px; }
+.lang-gate-logo { height: 72px; width: auto; margin-bottom: 28px; }
+.lang-gate-box h2 { font-size: 22px; font-weight: 600; line-height: 1.5; margin-bottom: 28px; }
+.lang-gate-box h2 span { color: var(--text-muted); font-weight: 400; }
+.lang-gate-buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.lang-gate-buttons .btn { min-width: 130px; padding: 11px 20px; font-size: 15px; }
+
 /* Responsive */
 @media (max-width: 700px) {
   .navbar {

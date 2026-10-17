@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AESChat - Security Self-Audit</title>
+  <link rel="icon" href="/favicon.ico">
+  <style>
+    :root {
+      --bg: #111111; --surface: #181818; --surface-alt: #222222; --border: #2e2e2e;
+      --text: #eaeaea; --text-muted: #888888; --accent: #10b981; --accent-hover: #059669;
+      --danger: #ef4444; --warn: #f59e0b; --ok: #10b981;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.6;
+      padding: 0 16px 80px;
+    }
+    .wrap { max-width: 820px; margin: 0 auto; }
+    header.top {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 16px 0; border-bottom: 1px solid var(--border); margin-bottom: 32px;
+      position: sticky; top: 0; background: var(--bg); z-index: 5;
+    }
+    header.top .back { color: var(--text-muted); text-decoration: none; font-size: 14px; }
+    header.top .back:hover { color: var(--text); }
+    header.top img { height: 40px; width: auto; }
+    h1 { font-size: 26px; margin: 24px 0 8px; letter-spacing: -0.02em; }
+    h2 { font-size: 19px; margin: 40px 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 16px; margin: 0 0 6px; }
+    p { margin: 0 0 12px; }
+    a { color: var(--accent); }
+    code {
+      font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 13px;
+      background: var(--surface-alt); padding: 1px 5px; border-radius: 3px; color: #cbd5e1;
+    }
+    .lede { color: var(--text-muted); font-size: 16px; }
+    .callout {
+      background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent);
+      border-radius: 6px; padding: 14px 16px; margin: 16px 0;
+    }
+    .demo-cta {
+      display: flex; align-items: center; gap: 12px;
+      background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.45); color: #fca5a5;
+      border-radius: 8px; padding: 14px 16px; margin: 22px 0; text-decoration: none; font-weight: 600;
+    }
+    .demo-cta:hover { background: rgba(239,68,68,0.16); }
+    .demo-cta .play { font-size: 20px; line-height: 1; }
+    .demo-cta small { display: block; font-weight: 400; color: var(--text-muted); margin-top: 2px; }
+    .legend { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0 8px; font-size: 13px; color: var(--text-muted); }
+    .tag {
+      display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.03em;
+      padding: 2px 8px; border-radius: 999px; text-transform: uppercase;
+    }
+    .sev-high { background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.4); }
+    .sev-med  { background: rgba(245,158,11,0.15); color: #fcd34d; border: 1px solid rgba(245,158,11,0.4); }
+    .sev-low  { background: rgba(136,136,136,0.15); color: #cbd5e1; border: 1px solid var(--border); }
+    .st-open    { background: rgba(239,68,68,0.12); color: #fca5a5; }
+    .st-planned { background: rgba(245,158,11,0.12); color: #fcd34d; }
+    .st-wontfix { background: rgba(136,136,136,0.12); color: #aaa; }
+    .st-fixed   { background: rgba(16,185,129,0.14); color: #6ee7b7; }
+    .finding {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+      padding: 16px 18px; margin: 14px 0;
+    }
+    .finding .head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .finding .id { font-family: "SF Mono", Menlo, monospace; font-weight: 700; color: var(--text); }
+    .finding .label { color: var(--text); font-weight: 600; }
+    .finding .fix { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); font-size: 14px; }
+    .finding .fix b { color: var(--accent); }
+    ul { margin: 0 0 12px 20px; }
+    li { margin-bottom: 6px; }
+    .foot { margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 13px; }
+    @media (max-width: 600px) { body { font-size: 14px; } h1 { font-size: 22px; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a href="index.html" class="back">&larr; Back to AESChat</a>
+      <a href="https://benlafqih.com" target="_blank" rel="noopener noreferrer" title="benlafqih.com">
+        <img src="White-removebg-preview.png" alt="Benlafqih">
+      </a>
+    </header>
+
+    <h1>Security Self-Audit</h1>
+    <p class="lede">A straightforward look at my messaging app's weak points. It began as a C program meant to run locally on Linux: two machines connected over the network and exchanged messages, a bit like a tiny email service. Using a couple of coding agents, I ported it to the web as AESChat, and the port silently introduced real security bugs that weren't in the original. That's the whole point of this page: it shows that coding agents, if not guided carefully (and no, a "please review my app for security" won't cut it), can introduce serious vulnerabilities into a program that used to be sound. I left those bugs in while I audited them, documented every finding below, and reproduced the worst one in a live sandboxed demo. The critical bugs (F1 to F3) are now fixed (F1 and F2 in this web app, F3 in the C original), so the deployed app runs the patched code, while the remaining findings are tracked as open or accepted by design. Personal project, clearly educational. Snapshot: 17 Oct 2026.</p>
+
+    <a href="vuln-demo.html" class="demo-cta">
+      <span class="play">&#9654;</span>
+      <span>Live attack demo: fire the real XSS at the vulnerable code, next to the patched version.
+        <small>Self-contained sandbox — no chat, no network. The deployed app is patched.</small></span>
+    </a>
+
+    <h2>Threat model</h2>
+    <p><strong>What we want to protect:</strong> message plaintext, the 256-bit room key, and who is talking to whom (metadata).</p>
+    <p><strong>Who we are getting protected from:</strong> a network observer, the PeerJS signalling server, Google STUN, a malicious or curious peer (anyone with the link), anyone who obtains the invite link, someone with access to the device, a compromised CDN or page host.</p>
+    <div class="finding">
+      <strong>Our core design:</strong> the key lives in the invite link. <strong>Whoever has the link can read the chat.</strong> So confidentiality comes down to two questions: <em>Was the link shared safely?</em> and <em>is the page you loaded the real page?</em> Most findings below are about that second question, because if attacker code runs in the page, the encryption protects nothing.
+    </div>
+
+    <h2>Legend</h2>
+    <div class="legend">
+      <span><span class="tag sev-high">High</span> can expose keys or plaintext</span>
+      <span><span class="tag sev-med">Medium</span> disruption, privacy, weakened defence</span>
+      <span><span class="tag sev-low">Low</span> hardening / hygiene</span>
+    </div>
+    <div class="legend">
+      <span><span class="tag st-open">Open</span> not addressed</span>
+      <span><span class="tag st-planned">Planned</span> accepted, fix scoped</span>
+      <span><span class="tag st-wontfix">By design</span> accepted limitation</span>
+      <span><span class="tag st-fixed">Fixed</span> resolved</span>
+    </div>
+
+    <h2>High severity</h2>
+
+    <div class="finding">
+      <div class="head"><span class="id">H1</span><span class="label">No Subresource Integrity on CDN scripts</span><span class="tag sev-high">High</span><span class="tag st-open">Open</span></div>
+      <p>The page loads PeerJS (unpkg) and qrcodejs (cdnjs) with no <code>integrity</code> hash. For a crypto app this is the biggest hole, if either CDN is compromised or tampered with in transit, its JavaScript runs inside the page with full access to <code>crypto.subtle</code>, the key, and every message ,at which point the encryption is irrelevant.</p>
+      <div class="fix"><b>Fix:</b> pin each script with an <code>integrity="sha384-…"</code> hash and <code>crossorigin="anonymous"</code>, or self-host both files in the repo and drop the third parties entirely.</div>
+    </div>
+
+    <div class="finding">
+      <div class="head"><span class="id">H2</span><span class="label">No Content-Security-Policy</span><span class="tag sev-high">High</span><span class="tag st-open">Open</span></div>
+      <p>The <code>_headers</code> file sets framing, MIME-sniffing, referrer and permissions protections, but no CSP ,the one header that turns "an XSS or a bad CDN" from game-over into blocked.</p>
+      <div class="fix"><b>Fix:</b> add a strict policy, e.g. <code>default-src 'none'</code> with <code>script-src</code> limited to self plus the two CDNs (ideally by hash), and a <code>connect-src</code> that still allows PeerJS and STUN. Must be tested against the live WebRTC flow.</div>
+    </div>
+
+    <h2>Medium severity</h2>
+
+    <div class="finding">
+      <div class="head"><span class="id">M1</span><span class="label">Predictable peer ID &amp; connection takeover</span><span class="tag sev-med">Medium</span><span class="tag st-planned">Planned</span></div>
+      <p>The host registers as <code>aeschat-&lt;roomId&gt;-host</code>, and the room ID is part of the link. When a new connection arrives, the host closes the current one and adopts the new peer. So anyone holding the link can connect to the host slot and kick the legitimate guest, or churn the connection ,a transport-level denial-of-service. They can't decrypt without the key, but they can disrupt and will see the handshake alias.</p>
+      <div class="fix"><b>Fix:</b> pin to the first peer, reject later connection attempts, and treat the peer as unverified until the safety number matches.</div>
+    </div>
+
+    <div class="finding">
+      <div class="head"><span class="id">M2</span><span class="label">No forward secrecy (single long-lived key)</span><span class="tag sev-med">Medium</span><span class="tag st-wontfix">By design</span></div>
+      <p>One random key per room, reused for the whole session and embedded in the link. If the key leaks later ,from browser history, a screenshot, the clipboard ,all previously captured ciphertext becomes decryptable. There is no ratchet or key rotation.</p>
+      <div class="fix"><b>Fix (out of scope for now):</b> perform an ECDH handshake over the DataChannel to derive a per-session key that never travels in the link, and re-key periodically. Documented here as a known limitation.</div>
+    </div>
+
+    <div class="finding">
+      <div class="head"><span class="id">M3</span><span class="label">Key exposure on the local device</span><span class="tag sev-med">Medium</span><span class="tag st-planned">Planned</span></div>
+      <p>The key sits in the URL fragment, so it also lands in the address bar, the browser history (each new room adds an entry), the QR code, and the clipboard on "Copy". None of this crosses the network, but anyone with the device ,or another app reading the clipboard ,can recover it.</p>
+      <div class="fix"><b>Fix:</b> strip the key from the visible URL with <code>history.replaceState</code> once connected; make clear in the UI that the link itself is the secret.</div>
+    </div>
+
+    <div class="finding">
+      <div class="head"><span class="id">M4</span><span class="label">WebRTC exposes your IP to the peer</span><span class="tag sev-med">Medium</span><span class="tag st-wontfix">By design</span></div>
+      <p>Inherent to WebRTC: the ICE candidate exchange reveals your local and public IP to whoever is on the other end, and to the signalling server. On this app, "the other end" is whoever has the link.</p>
+      <div class="fix"><b>Mitigation:</b> route through a TURN relay (<code>iceTransportPolicy: 'relay'</code>) to hide IPs ,at the cost of running and paying for TURN. Stated as a privacy fact rather than fixed.</div>
+    </div>
+
+    <div class="finding">
+      <div class="head"><span class="id">M5</span><span class="label">Man-in-the-middle check is manual and un-nudged</span><span class="tag sev-med">Medium</span><span class="tag st-planned">Planned</span></div>
+      <p>The only defence against talking to the wrong peer is the safety number, compared out of band ,and nothing in the UI prompts users to compare it. If the link is intercepted before first contact, an attacker could be the peer and neither side would notice.</p>
+      <div class="fix"><b>Fix:</b> surface the safety number prominently on connect and ask both sides to confirm it matches before the composer unlocks.</div>
+    </div>
+
+    <h2>Low severity</h2>
+
+    <div class="finding">
+      <div class="head"><span class="id">L1</span><span class="label">BroadcastChannel echoes packets to same-origin tabs</span><span class="tag sev-low">Low</span><span class="tag st-planned">Planned</span></div>
+      <p>Every packet is also posted to a same-origin <code>BroadcastChannel</code>, even during a live WebRTC connection. Any other tab or script on the same origin in the same browser can observe (ciphertext) or inject frames. Low risk ,same user, same origin ,but an unnecessary surface.</p>
+      <div class="fix"><b>Fix:</b> use the local channel only in the explicit offline/local-test mode, not alongside a live connection.</div>
+    </div>
+
+    <div class="finding">
+      <div class="head"><span class="id">L2</span><span class="label">No input limits → UI denial of service</span><span class="tag sev-low">Low</span><span class="tag st-planned">Planned</span></div>
+      <p>The peer's alias and message text aren't length- or rate-limited. A malicious peer can send a huge alias or flood messages to bloat or freeze the interface. Content is rendered with <code>textContent</code>, so this is not an injection bug ,only cosmetic/availability.</p>
+      <div class="fix"><b>Fix:</b> cap alias and message length and throttle inbound rendering.</div>
+    </div>
+
+    <div class="finding">
+      <div class="head"><span class="id">L3</span><span class="label">"Bot verification" is cosmetic</span><span class="tag sev-low">Low</span><span class="tag st-wontfix">By design</span></div>
+      <p>The human-check is a styled checkbox that ungates the button after a fake delay. It is not a CAPTCHA and stops no automation ,and it can't be real without a backend to validate a token. Kept intentionally as a joke, and never labelled "verification" in any claim about the app.</p>
+      <div class="fix"><b>Decision:</b> keep as a gag; do not present it as a security control.</div>
+    </div>
+
+    <div class="finding">
+      <div class="head"><span class="id">L4</span><span class="label">Repo files served as public assets</span><span class="tag sev-low">Low</span><span class="tag st-planned">Planned</span></div>
+      <p>Because the whole repo root is published, <code>wrangler.toml</code>, <code>README.md</code> and <code>LICENSE</code> are publicly fetchable. Harmless here (nothing secret), but untidy.</p>
+      <div class="fix"><b>Fix:</b> move the web files under a <code>public/</code> directory and point the assets config there.</div>
+    </div>
+
+    <div class="finding">
+      <div class="head"><span class="id">L5</span><span class="label">Malformed invite link stalls silently</span><span class="tag sev-low">Low</span><span class="tag st-planned">Planned</span></div>
+      <p>A crafted <code>#key=</code> that isn't valid base64 makes key import throw. The join handler awaits the session with no error handling, so a bad or corrupt link makes the UI stall silently instead of explaining what went wrong. Robustness, not a breach.</p>
+      <div class="fix"><b>Fix:</b> validate the room/key shape, wrap session start in try/catch, and show a clear "invalid or corrupt invite link" message.</div>
+    </div>
+
+    <div class="finding">
+      <div class="head"><span class="id">L6</span><span class="label">Peer-controlled message id</span><span class="tag sev-low">Low</span><span class="tag st-planned">Planned</span></div>
+      <p>An incoming message's <code>id</code> is taken from the peer and used as a DOM element id. It is never evaluated (not an injection), but an odd or colliding id could confuse later lookups. Harmless today.</p>
+      <div class="fix"><b>Fix:</b> regenerate or sanitize the id locally instead of trusting the peer's.</div>
+    </div>
+
+    <h2>Injection surface (reviewed)</h2>
+    <div class="finding">
+      Every classic injection sink was checked: <code>innerHTML</code> (only clearing or static strings), and <strong>no</strong> <code>eval</code>, <code>new&nbsp;Function</code>, <code>document.write</code>, string-based timers or <code>insertAdjacentHTML</code>. All peer- and user-controlled data (messages, aliases, packet fields, status) is written with <code>textContent</code>, so it can't be parsed as HTML; the QR code receives a self-generated URL. After the inspector fix (F1), there is <strong>no classic DOM-XSS or JS-injection path</strong>. The dominant remaining "inject code into the page" risk is therefore <strong>H1</strong> (third-party scripts with no integrity check) backed by the absence of <strong>H2</strong> (CSP) ,which is exactly why those two sit at the top of the list.
+    </div>
+
+    <h2>Found &amp; fixed in this review</h2>
+    <div class="finding">
+      <div class="head"><span class="id">F1</span><span class="label">DOM-XSS in the packet inspector</span><span class="tag sev-high">High</span><span class="tag st-fixed">Fixed</span></div>
+      <p>The wire inspector built its rows with <code>innerHTML</code>, interpolating packet fields that, for inbound packets, come straight from the remote peer. A crafted <code>iv</code>/<code>ciphertext</code>/<code>tag</code> could inject markup and run script in the other person's page. Rebuilt to construct nodes with <code>textContent</code>, so peer-controlled data can never be parsed as HTML.</p>
+      <p><a href="vuln-demo.html">&#9654; Try the live demo</a> — fire the real payload at the vulnerable code next to the patched version, and see how you'd attack it. (Sandboxed to that page; the deployed app is patched.)</p>
+    </div>
+    <div class="finding">
+      <div class="head"><span class="id">F2</span><span class="label">Overstated security claims</span><span class="tag sev-low">Low</span><span class="tag st-fixed">Fixed</span></div>
+      <p>"Zero-knowledge", "never touches a server" and "$0 forever" were corrected across the README and the in-app copy to the honest model: peer-to-peer messages, but a signalling server and STUN for setup, and "anyone with the link can read it".</p>
+    </div>
+    <div class="finding">
+      <div class="head"><span class="id">F3</span><span class="label">Stack buffer overflow (C predecessor)</span><span class="tag sev-high">High</span><span class="tag st-fixed">Fixed</span></div>
+      <p>In the original C socket chat this app grew from, <code>decrypt_msg</code> wrote recovered plaintext into an undersized stack buffer. Fixed with length-bounded crypto buffers. Tracked in that project's own audit.</p>
+    </div>
+
+    <h2>What holds up</h2>
+    <ul>
+      <li>AES-256-GCM via Web Crypto is implemented correctly: 256-bit key, a fresh 12-byte random IV per message, a 128-bit tag verified on decryption; tampered data and the wrong key are both rejected. Checked with a 21-assertion test.</li>
+      <li>Message bodies and peer aliases are rendered with <code>textContent</code> ,no XSS there.</li>
+      <li>Once the peer-to-peer channel is open, messages are not relayed through or stored on any server.</li>
+      <li>Response headers are partly hardened: framing, MIME-sniffing, referrer and permissions policies are set.</li>
+    </ul>
+
+    <h2>Priority order</h2>
+    <ul>
+      <li><strong>1.</strong> H1 (SRI / self-host) and H2 (CSP) ,highest value, low effort, directly protect the key and plaintext.</li>
+      <li><strong>2.</strong> M1 (connection takeover) and M5 (MITM / safety-number UX) ,protect the session.</li>
+      <li><strong>3.</strong> M3, L1, L2 ,cheap hardening.</li>
+      <li><strong>4.</strong> M2 (forward secrecy) and M4 (TURN) ,architectural; accepted limitations for now.</li>
+      <li><strong>5.</strong> L3, L4 ,hygiene and honesty.</li>
+    </ul>
+
+    <div class="foot">
+      Self-audit of an educational project by <a href="https://benlafqih.com" target="_blank" rel="noopener noreferrer">Ahmed Benlafqih</a>. This is a living document; open findings are tracked, not hidden. Snapshot 17 Oct 2026.
+    </div>
+  </div>
+</body>
+</html>
